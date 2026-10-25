@@ -1,59 +1,90 @@
 # -*- coding: utf-8 -*-
-"""思维生长站：只含虚构样例的公网免费体验应用。严禁用于真实学生数据。"""
-import json,os,threading,time,datetime
-from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
-from urllib.parse import urlsplit,parse_qs
+"""思维生长站 V9.1：公开演示，只提供虚构数据，不储存任何用户上传的图片。"""
+import json, os, random
 from pathlib import Path
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlsplit
 
 ROOT=Path(__file__).resolve().parent
-LOCK=threading.RLock()
-DOMAINS=["数与代数","图形与几何","统计与概率","综合与实践"]
-TITLES=[
-("数与代数","数的组成：怎样解释十进制？"),("数与代数","分数的大小只看分母吗？"),("数与代数","一个算式有多少种解释？"),("数与代数","为什么要统一计数单位？"),("数与代数","小数和分数有什么联系？"),("数与代数","改变条件后算法还成立吗？"),("数与代数","用字母表示变化的数量"),("数与代数","方程的两边为什么保持相等？"),("数与代数","估算与精算怎样选择？"),("数与代数","运算律能帮助我们发现什么？"),("数与代数","平均分之后如何表示结果？"),("数与代数","同一道题的不同解法"),
-("图形与几何","比较图形：什么改变了？"),("图形与几何","周长相等面积一定相等吗？"),("图形与几何","用不同方法推导面积"),("图形与几何","立体展开图的秘密"),("图形与几何","如何验证图形的关系？"),("图形与几何","测量误差来自哪里？"),
-("统计与概率","评选吉祥物：怎样让结论可信？"),("统计与概率","数据会说谎吗？"),("统计与概率","怎样设计公平的调查？"),("统计与概率","平均数会掩盖什么？"),("统计与概率","可能性如何比较？"),("统计与概率","根据数据做有依据的决策"),
-("综合与实践","两条研学路线如何比较？"),("综合与实践","设计节水方案"),("综合与实践","校园空间怎么规划？"),("综合与实践","怎样优化班级活动预算？"),("综合与实践","设计合理的运动计划"),("综合与实践","从真实问题建立数学模型")]
-TASKS=[{"id":i+1,"title":title,"domain":domain,"grade":1+(i%6),"phase":["课前","课堂","课后"][i%3],"prompt":f"围绕“{title}”进行探究：先提出自己的猜想，再使用算式、图示、表格或实例说明理由；比较至少两种思路，并提出一个改变条件后的新问题。","concept":["数量关系","图形关系","数据与证据","问题与模型"][DOMAINS.index(domain)]} for i,(domain,title) in enumerate(TITLES)]
-DIMS={"策略型思维":["抽象性","多样性","择优性","迁移性"],"批判型思维":["质疑性","解构性","辩证性","建构性"],"创新型思维":["拓展性","发散性","创造性"]}
-STUDENTS=[{"id":i+1,"alias":"演示·"+n,"grade":1+i%6} for i,n in enumerate(["星星","小树","云朵","山川","可可","明月","乐乐","晨曦"])]
-SUBMISSIONS=[{"id":i+1,"task_id":(i*7)%30+1,"student_id":i%8+1,"answer":"我先提出一个猜想，然后用图示和算式解释理由。我发现条件改变后要重新判断方法是否合适。","created":"2026-10-20","demo":True} for i in range(70)]
-EVALUATIONS=[{"id":x["id"],"submission_id":x["id"],"ratings":{d:(x["id"]+j)%4+1 for j,d in enumerate(sum(DIMS.values(),[]))},"feedback":"演示评语：能够说明部分依据，可以继续比较不同方案并寻找反例。","demo":True} for x in SUBMISSIONS]
-CHATS=[]
-def reply(q,mode):
- if mode=="建构式":return "小思建议先画图或举例：你能把关键数量与关系标出来吗？这些关系与以前学过的哪些知识相通？"
- if mode=="评估式":return "我们来检验你的结论：依据是什么？是否存在反例？如果改变一个条件，你的结论还成立吗？"
- return "这个问题很有价值！先说说你已经知道什么、尝试过什么。你能提出两种方法并比较它们吗？小思不会代替你思考。"
+rng=random.Random(20261025)
+GROUPS={
+ "抽象概括思维":["抽象性","概括性"],
+ "策略灵活思维":["多样性","择优性"],
+ "批判质疑思维":["质疑性","辩证性","建构性"],
+ "迁移应用思维":["迁移性","化归性"],
+ "创新生成思维":["拓展性","发散性","独创性"]
+}
+DIMS=[v for vs in GROUPS.values() for v in vs]
+GRADE={i:f"{'一二三四五六'[i-1]}年级" for i in range(1,7)}
+SRC=[
+("数与代数","用小棒表示10和1，怎样看出十进制？"),("图形与几何","哪些图形放大后还是同一种图形？"),("统计与概率","最喜欢的课间活动怎样调查更公平？"),("综合与实践","为班级图书角分类设计标签"),("数与代数","9+6为什么可以想成10+5？"),
+("数与代数","同一个乘法算式能解决哪些问题？"),("图形与几何","怎样比较两个图形的周长？"),("统计与概率","记录一周天气，怎样整理更清楚？"),("综合与实践","设计值日表怎样更合理？"),("数与代数","平均分后有余数说明了什么？"),
+("数与代数","分数的大小只看分母吗？"),("图形与几何","面积和周长有什么不同？"),("统计与概率","评选吉祥物：怎样让结论可信？"),("综合与实践","为秋游准备购物清单与预算"),("数与代数","为什么13÷4的余数1还能继续分？"),
+("数与代数","运算律能帮我们发现什么？"),("图形与几何","平移、旋转后哪些属性不变？"),("统计与概率","平均数会掩盖什么信息？"),("综合与实践","设计班级节水方案"),("数与代数","用字母表示数有什么好处？"),
+("数与代数","分数乘法为什么这样算？"),("图形与几何","怎样推导平行四边形面积？"),("统计与概率","根据统计图能得出哪些结论？"),("综合与实践","比较两条研学路线的优劣"),("数与代数","方程两边为什么要同时变化？"),
+("数与代数","比例关系怎样帮助解决问题？"),("图形与几何","圆面积公式从哪里来？"),("统计与概率","抽样调查怎样才更可靠？"),("综合与实践","为毕业活动做方案优化"),("数与代数","不同算法为什么本质相通？")]
+TASKS=[]
+for i,(domain,title) in enumerate(SRC):
+ g=i//5+1
+ TASKS.append({"id":i+1,"grade":g,"grade_text":GRADE[g],"domain":domain,"title":title,"phase":["课前","课堂","课后"][i%3],"concept":{"数与代数":"数量关系与算理","图形与几何":"图形关系与空间观念","统计与概率":"数据证据与理性判断","综合与实践":"真实问题与数学建模"}[domain],"prompt":f"围绕“{title}”进行探究：提出猜想，用算式、图示或表格说明理由；比较两种不同策略，再尝试迁移到新的情境。"})
+NAMES=["星星","晨曦","明月","云朵","小树","乐乐","可可","山川","远航","小禾","清川","果果","小雨","小林","知知","悦悦","天天","安安"]
+STUDENTS=[{"id":i+1,"alias":"演示·"+name,"grade":i%6+1,"grade_text":GRADE[i%6+1],"class_name":GRADE[i%6+1]+"（1）班"} for i,name in enumerate(NAMES)]
+ANSWERS=[
+"我先用图示表达关系，再用算式验证。比较后发现原来的方法更直观，但条件变化时需要调整。",
+"我先提出猜想，然后通过列举例子与反例来检验，最后把复杂问题转化成学过的基本问题。",
+"我尝试了两种方案，一种计算快，另一种更容易解释理由，比较之后选择有证据支持的方法。",
+"我先整理已知条件，寻找与旧知识的联系。通过变式比较发现结论成立还需要额外条件。"]
+FEEDBACK=[
+"能够比较不同方法并说明部分依据，建议补充反例检验与概括。",
+"能从已有经验出发化归，下一步尝试提炼一般规律。",
+"表现出迁移意识，建议增加数据、图示或数量关系方面的证据。",
+"能对已有方法提出质疑，下一步可增强多角度论证。"]
+SUBMISSIONS=[];EVALUATIONS=[]
+for i in range(300):
+ s=STUDENTS[i%len(STUDENTS)]
+ task=rng.choice([t for t in TASKS if t["grade"]==s["grade"]])
+ base=2.35 + (s["id"]%6-2)*.12+(i%12-6)*.02
+ scores={d:max(1,min(4,round(rng.gauss(base,.66)))) for d in DIMS}
+ primary={g:round(sum(scores[d] for d in ds)/len(ds),2) for g,ds in GROUPS.items()}
+ mean=sum(primary.values())/5
+ lev="基础" if mean<2.2 else "发展" if mean<3.1 else "提升"
+ sid=i+1
+ SUBMISSIONS.append({"id":sid,"student_id":s["id"],"task_id":task["id"],"task_title":task["title"],"domain":task["domain"],"grade":s["grade"],"answer":rng.choice(ANSWERS),"created":f"2026-10-{i%25+1:02d}","demo":True})
+ EVALUATIONS.append({"id":sid,"submission_id":sid,"student_id":s["id"],"task_id":task["id"],"primary":primary,"ratings":scores,"overall_level":lev,"feedback":rng.choice(FEEDBACK),"demo":True})
+CHATS=[{"id":i+1,"student_id":STUDENTS[i%18]["id"],"task_id":TASKS[i%30]["id"],"mode":["启发式","建构式","评估式"][i%3],"question":["为什么这个方法也可以？","如果条件变了怎么办？","怎样证明结论？"][i%3],"reply":"先说出依据，再比较不同方法，试着寻找反例。"} for i in range(120)]
+UPLOADS=[{"id":i+1,"student_id":STUDENTS[i%18]["id"],"task_id":TASKS[i%30]["id"],"image_name":f"demo_work_{i+1:03d}.jpg","type":["手写演算","几何作图","统计图表","思维导图"][i%4],"analysis":"虚构作品示例：可以补充关键步骤、表达数学依据并比较策略。"} for i in range(36)]
+DASHBOARD={
+ "primary_groups":GROUPS,
+ "primary_summary":{g:round(sum(e["primary"][g] for e in EVALUATIONS)/len(EVALUATIONS),2) for g in GROUPS},
+ "secondary_avg":[{"name":d,"value":round(sum(e["ratings"][d] for e in EVALUATIONS)/len(EVALUATIONS),2)} for d in DIMS],
+ "trend":[{"period":f"分组{i+1}","avg":round(sum(sum(e["primary"].values())/5 for e in EVALUATIONS[i*30:(i+1)*30])/30,2)} for i in range(10)],
+ "domain_distribution":[{"name":d,"value":sum(s["domain"]==d for s in SUBMISSIONS)} for d in ("数与代数","图形与几何","统计与概率","综合与实践")],
+ "level_distribution":[{"name":lev,"value":sum(e["overall_level"]==lev for e in EVALUATIONS)} for lev in ("基础","发展","提升")]
+}
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
- def send(self,data,status=200,ctype="application/json; charset=utf-8"):
-  body=json.dumps(data,ensure_ascii=False).encode() if not isinstance(data,bytes) else data
-  self.send_response(status);self.send_header("Content-Type",ctype);self.send_header("Content-Length",str(len(body)));self.send_header("Cache-Control","no-store");self.send_header("X-Content-Type-Options","nosniff");self.send_header("Referrer-Policy","no-referrer");self.end_headers();self.wfile.write(body)
+ def send(self,obj,status=200,content_type="application/json; charset=utf-8"):
+  data=obj if isinstance(obj,bytes) else json.dumps(obj,ensure_ascii=False).encode("utf-8")
+  self.send_response(status)
+  for k,v in {"Content-Type":content_type,"Content-Length":str(len(data)),"Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer","X-Frame-Options":"SAMEORIGIN"}.items():self.send_header(k,v)
+  self.end_headers();self.wfile.write(data)
  def do_GET(self):
   path=urlsplit(self.path).path
   if path in ("/","/index.html","/teacher.html","/student.html"):
-   self.send((ROOT/"index.html").read_bytes(),ctype="text/html; charset=utf-8");return
-  if path=="/api/status":return self.send({"ok":True,"version":"public-free-demo","demo_only":True,"ephemeral_storage":True,"ai_mode":"规则式数学追问；未连接大模型","task_count":len(TASKS)})
-  if path=="/api/tasks":return self.send(TASKS)
-  if path=="/api/students":return self.send(STUDENTS)
-  if path=="/api/submissions":return self.send(SUBMISSIONS)
-  if path=="/api/evaluations":return self.send(EVALUATIONS)
-  if path=="/api/chats":return self.send(CHATS[-100:])
-  self.send({"error":"not found"},404)
+   return self.send((ROOT/"index.html").read_bytes(),content_type="text/html; charset=utf-8")
+  routes={"/api/tasks":TASKS,"/api/students":STUDENTS,"/api/submissions":SUBMISSIONS,"/api/evaluations":EVALUATIONS,"/api/chats":CHATS,"/api/uploads":UPLOADS,"/api/dashboard":DASHBOARD,"/api/status":{"ok":True,"version":"V9.1科技增强免费体验","demo_only":True,"task_count":len(TASKS),"submission_count":len(SUBMISSIONS),"evaluation_count":len(EVALUATIONS),"secondary_count":len(DIMS),"image_upload":"browser-local-preview-no-storage"}}
+  if path in routes:return self.send(routes[path])
+  return self.send({"error":"not found"},404)
  def do_POST(self):
-  path=urlsplit(self.path).path
   length=int(self.headers.get("Content-Length","0"))
-  if length<1 or length>4096:return self.send({"error":"请求内容长度不符合要求"},400)
-  try:payload=json.loads(self.rfile.read(length))
+  if length>8192 or length<0:return self.send({"error":"不支持文件传输；请只提交简短的数学问题。"},413)
+  try:data=json.loads(self.rfile.read(length)) if length else {}
   except Exception:return self.send({"error":"无效请求"},400)
-  if not isinstance(payload,dict):return self.send({"error":"无效请求"},400)
-  if path=="/api/chat":
-   q=str(payload.get("question",""))[:400].strip();mode=str(payload.get("mode","启发式"))
-   if not q:return self.send({"error":"请输入问题"},400)
-   if mode not in ["启发式","建构式","评估式"]:mode="启发式"
-   return self.send({"reply":reply(q,mode),"mode":mode,"demo_only":True,"saved":False})
-  # Public demo disallows actual user-provided submissions or identifiable data.
-  return self.send({"error":"本公开体验版只展示虚构数据，不接收真实学生作答或评价。"},403)
+  if not isinstance(data,dict):return self.send({"error":"无效请求"},400)
+  if urlsplit(self.path).path!="/api/chat":return self.send({"error":"公网演示不接收实际学生数据或图片，所有作答与评价仅为虚构样例。"},403)
+  q=str(data.get("question",""))[:300].strip(); mode=data.get("mode","启发式")
+  if not q:return self.send({"error":"请输入问题"},400)
+  reply={"启发式":"先说说你知道什么，以及已经尝试了哪些方法。能不能找一个反例？","建构式":"你能用图示、表格或数量关系式表达题目，再比较两种解题思路吗？","评估式":"你的结论有哪些依据？如果改变一个条件还成立吗？你会如何验证？"}.get(mode,"先描述你的猜想和依据。")
+  return self.send({"reply":reply,"saved":False,"demo_only":True})
 if __name__=="__main__":
- port=int(os.getenv("PORT","10000"))
- print(f"思维生长站免费演示站，监听 {port}；不保存真实个人数据",flush=True)
- ThreadingHTTPServer(("0.0.0.0",port),Handler).serve_forever()
+ port=int(os.getenv("PORT","10000"));print(f"思维生长站V9.1免费演示端口{port}",flush=True);ThreadingHTTPServer(("0.0.0.0",port),Handler).serve_forever()
