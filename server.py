@@ -72,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
    return self.send((ROOT/"index.html").read_bytes(),content_type="text/html; charset=utf-8")
   if path=="/app.css":return self.send((ROOT/"app.css").read_bytes(),content_type="text/css; charset=utf-8")
   if path=="/app.js":return self.send((ROOT/"app.js").read_bytes(),content_type="text/javascript; charset=utf-8")
-  routes={"/api/tasks":TASKS,"/api/students":STUDENTS,"/api/submissions":SUBMISSIONS,"/api/evaluations":EVALUATIONS,"/api/chats":CHATS,"/api/uploads":UPLOADS,"/api/dashboard":DASHBOARD,"/api/status":{"ok":True,"version":"V10稳定图表三维评价体验","demo_only":True,"task_count":len(TASKS),"submission_count":len(SUBMISSIONS),"evaluation_count":len(EVALUATIONS),"secondary_count":len(DIMS),"image_upload":"browser-local-preview-no-storage"}}
+  routes={"/api/tasks":TASKS,"/api/students":STUDENTS,"/api/submissions":SUBMISSIONS,"/api/evaluations":EVALUATIONS,"/api/chats":CHATS,"/api/uploads":UPLOADS,"/api/dashboard":DASHBOARD,"/api/status":{"ok":True,"version":"V11师生互动免费演示","demo_only":True,"task_count":len(TASKS),"submission_count":len(SUBMISSIONS),"evaluation_count":len(EVALUATIONS),"secondary_count":len(DIMS),"image_upload":"browser-local-preview-no-storage"}}
   if path in routes:return self.send(routes[path])
   return self.send({"error":"not found"},404)
  def do_POST(self):
@@ -86,5 +86,8 @@ class Handler(BaseHTTPRequestHandler):
   if not q:return self.send({"error":"请输入问题"},400)
   reply={"启发式":"先说说你知道什么，以及已经尝试了哪些方法。能不能找一个反例？","建构式":"你能用图示、表格或数量关系式表达题目，再比较两种解题思路吗？","评估式":"你的结论有哪些依据？如果改变一个条件还成立吗？你会如何验证？"}.get(mode,"先描述你的猜想和依据。")
   return self.send({"reply":reply,"saved":False,"demo_only":True})
+from demo_workflow import attach
+attach(Handler, TASKS, STUDENTS)
+
 if __name__=="__main__":
  port=int(os.getenv("PORT","10000"));print(f"思维生长站V9.1免费演示端口{port}",flush=True);ThreadingHTTPServer(("0.0.0.0",port),Handler).serve_forever()
