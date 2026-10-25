@@ -8,11 +8,9 @@ from urllib.parse import urlsplit
 ROOT=Path(__file__).resolve().parent
 rng=random.Random(20261025)
 GROUPS={
- "抽象概括思维":["抽象性","概括性"],
- "策略灵活思维":["多样性","择优性"],
- "批判质疑思维":["质疑性","辩证性","建构性"],
- "迁移应用思维":["迁移性","化归性"],
- "创新生成思维":["拓展性","发散性","独创性"]
+ "策略型思维":["抽象性","多样性","择优性","迁移性"],
+ "批判型思维":["质疑性","解构性","辩证性","建构性"],
+ "创新型思维":["拓展性","发散性","创造性"]
 }
 DIMS=[v for vs in GROUPS.values() for v in vs]
 GRADE={i:f"{'一二三四五六'[i-1]}年级" for i in range(1,7)}
@@ -46,7 +44,7 @@ for i in range(300):
  base=2.35 + (s["id"]%6-2)*.12+(i%12-6)*.02
  scores={d:max(1,min(4,round(rng.gauss(base,.66)))) for d in DIMS}
  primary={g:round(sum(scores[d] for d in ds)/len(ds),2) for g,ds in GROUPS.items()}
- mean=sum(primary.values())/5
+ mean=sum(primary.values())/len(GROUPS)
  lev="基础" if mean<2.2 else "发展" if mean<3.1 else "提升"
  sid=i+1
  SUBMISSIONS.append({"id":sid,"student_id":s["id"],"task_id":task["id"],"task_title":task["title"],"domain":task["domain"],"grade":s["grade"],"answer":rng.choice(ANSWERS),"created":f"2026-10-{i%25+1:02d}","demo":True})
@@ -57,7 +55,7 @@ DASHBOARD={
  "primary_groups":GROUPS,
  "primary_summary":{g:round(sum(e["primary"][g] for e in EVALUATIONS)/len(EVALUATIONS),2) for g in GROUPS},
  "secondary_avg":[{"name":d,"value":round(sum(e["ratings"][d] for e in EVALUATIONS)/len(EVALUATIONS),2)} for d in DIMS],
- "trend":[{"period":f"分组{i+1}","avg":round(sum(sum(e["primary"].values())/5 for e in EVALUATIONS[i*30:(i+1)*30])/30,2)} for i in range(10)],
+ "trend":[{"period":f"分组{i+1}","avg":round(sum(sum(e["primary"].values())/len(GROUPS) for e in EVALUATIONS[i*30:(i+1)*30])/30,2)} for i in range(10)],
  "domain_distribution":[{"name":d,"value":sum(s["domain"]==d for s in SUBMISSIONS)} for d in ("数与代数","图形与几何","统计与概率","综合与实践")],
  "level_distribution":[{"name":lev,"value":sum(e["overall_level"]==lev for e in EVALUATIONS)} for lev in ("基础","发展","提升")]
 }
@@ -72,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
   path=urlsplit(self.path).path
   if path in ("/","/index.html","/teacher.html","/student.html"):
    return self.send((ROOT/"index.html").read_bytes(),content_type="text/html; charset=utf-8")
-  routes={"/api/tasks":TASKS,"/api/students":STUDENTS,"/api/submissions":SUBMISSIONS,"/api/evaluations":EVALUATIONS,"/api/chats":CHATS,"/api/uploads":UPLOADS,"/api/dashboard":DASHBOARD,"/api/status":{"ok":True,"version":"V9.1科技增强免费体验","demo_only":True,"task_count":len(TASKS),"submission_count":len(SUBMISSIONS),"evaluation_count":len(EVALUATIONS),"secondary_count":len(DIMS),"image_upload":"browser-local-preview-no-storage"}}
+  routes={"/api/tasks":TASKS,"/api/students":STUDENTS,"/api/submissions":SUBMISSIONS,"/api/evaluations":EVALUATIONS,"/api/chats":CHATS,"/api/uploads":UPLOADS,"/api/dashboard":DASHBOARD,"/api/status":{"ok":True,"version":"V10稳定图表三维评价体验","demo_only":True,"task_count":len(TASKS),"submission_count":len(SUBMISSIONS),"evaluation_count":len(EVALUATIONS),"secondary_count":len(DIMS),"image_upload":"browser-local-preview-no-storage"}}
   if path in routes:return self.send(routes[path])
   return self.send({"error":"not found"},404)
  def do_POST(self):
