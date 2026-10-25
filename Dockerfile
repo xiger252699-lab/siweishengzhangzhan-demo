@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 WORKDIR /app
-COPY server.py index.html ./
+COPY server.py index.html app.css app.js ./
 ENV PYTHONDONTWRITEBYTECODE=1 PORT=10000
 EXPOSE 10000
 CMD ["python","-u","server.py"]
