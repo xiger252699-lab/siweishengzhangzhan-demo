@@ -1,0 +1,6 @@
+__pycache__/
+*.db
+*.db-*
+.env
+.local_credentials.json
+data/
